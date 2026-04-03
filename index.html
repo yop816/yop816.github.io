@@ -285,77 +285,97 @@ async function importData(event) {
             const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download="mouche_data.json"; a.click();
         }
 		
-		function render() {
-            markerCluster.clearLayers(); 
-            markersMap = {};
-            
-            // Timeline
-            const years = new Set();
-            data.structures.forEach(s => s.projects.forEach(p => years.add(p.year)));
-            document.getElementById('year-timeline').innerHTML = `<button class="year-btn ${currentYear==='TOUT'?'active':''}" onclick="setYear('TOUT')">TOUT</button>` + 
-                Array.from(years).sort().map(y => `<button class="year-btn ${currentYear===y?'active':''}" onclick="setYear('${y}')">${y}</button>`).join('');
+function render() {
+    markerCluster.clearLayers(); 
+    markersMap = {};
+    
+    // 1. Timeline (Génération des boutons d'années)
+    const years = new Set();
+    data.structures.forEach(s => s.projects.forEach(p => years.add(p.year)));
+    document.getElementById('year-timeline').innerHTML = `<button class="year-btn ${currentYear==='TOUT'?'active':''}" onclick="setYear('TOUT')">TOUT</button>` + 
+        Array.from(years).sort().map(y => `<button class="year-btn ${currentYear===y?'active':''}" onclick="setYear('${y}')">${y}</button>`).join('');
 
-            // Admin Visibility
-           document.querySelectorAll('#btn-save, #btn-load, #btn-add-struct, #btn-quick-proj').forEach(b => {
-    b.style.display = isAdmin ? 'flex' : 'none';
-});
+    // 2. Visibilité des boutons Admin globaux
+    document.querySelectorAll('#btn-save, #btn-load, #btn-add-struct, #btn-quick-proj').forEach(b => {
+        b.style.display = isAdmin ? 'flex' : 'none';
+    });
 
-            // Légende Cascade
-        const mainCats = data.categories.filter(c => !c.parent);
-	const legendEl = document.getElementById('legend');
-if (legendEl) {
-    legendEl.innerHTML = mainCats.map(c => {
-        const subs = data.categories.filter(sc => sc.parent === c.name);
-        const hasSubs = subs.length > 0;
-        const isOpen = openSubMenus.includes(c.name); // Utilise la variable globale
-        return `<div class="legend-group">
-            <div class="legend-item">
-                <div class="legend-main-row ${activeCats.includes(c.name)?'active':''}" onclick="toggleCatFilter('${c.name}', true)">
-                    <div class="legend-color" style="background:${c.color}"></div> ${c.name}
-                </div>
-                ${hasSubs ? `<span class="arrow-toggle" onclick="event.stopPropagation(); toggleSubMenu('${c.name}')">${isOpen ? '▲' : '▼'}</span>` : ''} 
-            </div>
-            <div class="sub-cat-container ${isOpen ? 'open' : ''}">
-                ${subs.map(sc => `<div class="legend-item ${activeCats.includes(sc.name)?'active':''}" onclick="toggleCatFilter('${sc.name}', false)" style="opacity:${activeCats.includes(sc.name)?'1':'0.4'}">
-                    <div class="legend-color" style="background:${sc.color}; width:8px; height:8px;"></div> ${sc.name}
-                </div>`).join('')}
-            </div>
-        </div>`;
-    }).join('');
-}
-
-            // Marqueurs
-            data.structures.forEach((s, idx) => {
-                const passYear = currentYear === "TOUT" || s.projects.some(p => p.year === currentYear);
-                const passType = currentType === "TOUT" || s.projects.some(p => p.type === currentType);
-                if (activeCats.includes(s.category) && passYear && passType) {
-                    const m = L.circleMarker([s.lat, s.lng], { color: '#000', weight: 1.5, fillColor: s.color, fillOpacity: 1, radius: 7 });
-                    m.on('click', () => openPanel(idx));
-                    markerCluster.addLayer(m); 
-                    markersMap[idx] = m;
-                }
-            });
-            map.addLayer(markerCluster);
-            
-            const catSelect = document.getElementById('s-cat-select');
-            if(catSelect) catSelect.innerHTML = data.categories.map((c,i)=>`<option value="${c.name}">${c.name}</option>`).join('');
-            
-            // Admin list categories
-            const catAdminList = document.getElementById('cat-admin-list');
-            if(catAdminList) {
-                catAdminList.innerHTML = data.categories.map((c, i) => `
-                    <div style="display:flex; justify-content:space-between; font-size:0.7rem; margin-bottom:5px;">
-                        <span>${c.parent ? '↳ ' : ''}${c.name}</span>
-                        <div>
-                            <span onclick="moveCat(${i}, -1)" style="cursor:pointer">▲</span>
-                            <span onclick="moveCat(${i}, 1)" style="cursor:pointer">▼</span>
-                            <span onclick="delCat(${i})" style="color:red; cursor:pointer; margin-left:5px;">✖</span>
-                        </div>
+    // 3. Légende Cascade
+    const mainCats = data.categories.filter(c => !c.parent);
+    const legendEl = document.getElementById('legend');
+    if (legendEl) {
+        legendEl.innerHTML = mainCats.map(c => {
+            const subs = data.categories.filter(sc => sc.parent === c.name);
+            const hasSubs = subs.length > 0;
+            const isOpen = openSubMenus.includes(c.name);
+            return `<div class="legend-group">
+                <div class="legend-item">
+                    <div class="legend-main-row ${activeCats.includes(c.name)?'active':''}" onclick="toggleCatFilter('${c.name}', true)">
+                        <div class="legend-color" style="background:${c.color}"></div> ${c.name}
                     </div>
-                `).join('');
-            }
+                    ${hasSubs ? `<span class="arrow-toggle" onclick="event.stopPropagation(); toggleSubMenu('${c.name}')">${isOpen ? '▲' : '▼'}</span>` : ''} 
+                </div>
+                <div class="sub-cat-container ${isOpen ? 'open' : ''}">
+                    ${subs.map(sc => `<div class="legend-item ${activeCats.includes(sc.name)?'active':''}" onclick="toggleCatFilter('${sc.name}', false)" style="opacity:${activeCats.includes(sc.name)?'1':'0.4'}">
+                        <div class="legend-color" style="background:${sc.color}; width:8px; height:8px;"></div> ${sc.name}
+                    </div>`).join('')}
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    // 4. Marqueurs sur la carte
+    data.structures.forEach((s, idx) => {
+        const passYear = currentYear === "TOUT" || s.projects.some(p => p.year === currentYear);
+        const passType = currentType === "TOUT" || s.projects.some(p => p.type === currentType);
+        
+        if (activeCats.includes(s.category) && passYear && passType) {
+            // On récupère la couleur de la catégorie du lieu
+            const catObj = data.categories.find(c => c.name === s.category);
+            const col = catObj ? catObj.color : '#000';
+
+            const m = L.circleMarker([s.lat, s.lng], { 
+                color: '#000', weight: 1.5, fillColor: col, fillOpacity: 1, radius: 7 
+            });
+            m.on('click', () => openPanel(idx));
+            markerCluster.addLayer(m); 
+            markersMap[idx] = m;
+        }
+    });
+    map.addLayer(markerCluster);
+    
+    // 5. Interface Admin Interne (uniquement si connecté)
+    if (isAdmin) {
+        // Remplissage du select des catégories (ajout de lieu)
+        const catSelect = document.getElementById('s-cat-select');
+        if(catSelect) {
+            catSelect.innerHTML = data.categories.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
         }
 
+        // Remplissage du select des parents (création de catégorie)
+        const parentSelect = document.getElementById('new-cat-parent');
+        if(parentSelect) {
+            const mainOnly = data.categories.filter(c => !c.parent);
+            parentSelect.innerHTML = `<option value="">-- Catégorie Principale --</option>` + 
+                mainOnly.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+        }
+
+        // Liste de gestion des catégories
+        const catAdminList = document.getElementById('cat-admin-list');
+        if(catAdminList) {
+            catAdminList.innerHTML = data.categories.map((c, i) => `
+                <div style="display:flex; justify-content:space-between; font-size:0.7rem; margin-bottom:5px; border-bottom:1px solid #eee; padding-bottom:2px;">
+                    <span>${c.parent ? '↳ ' : ''}${c.name}</span>
+                    <div>
+                        <span onclick="moveCat(${i}, -1)" style="cursor:pointer">▲</span>
+                        <span onclick="moveCat(${i}, 1)" style="cursor:pointer">▼</span>
+                        <span onclick="delCat(${i})" style="color:red; cursor:pointer; margin-left:5px;">✖</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+    }
+} 
         function toggleSubMenu(name) {
             const idx = openSubMenus.indexOf(name);
             if(idx > -1) openSubMenus.splice(idx, 1); else openSubMenus.push(name);
