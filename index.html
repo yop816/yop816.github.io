@@ -190,8 +190,8 @@ input, textarea, select {
 const map = L.map('map', { zoomControl: false }).setView([45.695, 4.793], 13);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png').addTo(map); 
 
-        const SUPABASE_URL = 'https://ton-url.supabase.co';
-        const SUPABASE_KEY = 'ta-clef-anon';
+        const SUPABASE_URL = 'https://evgruofgrxipcvypbuxd.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV2Z3J1b2ZncnhpcGN2eXBidXhkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxNzE5MTQsImV4cCI6MjA5MDc0NzkxNH0.k8C0V2KN0eZtsGK4mwx2w3btZ9m6OTzM4ielxGfQCoE';
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         let data = { structures: [], categories: [], password: "Mouche!" };
