@@ -345,15 +345,18 @@ function createGlobalProject() {
 
 function renderProjectsList() {
     const sidePanel = document.getElementById('side-panel');
-    sidePanel.classList.remove('half-page');
-    sidePanel.classList.add('active');
-    render();
+    if (sidePanel) {
+        sidePanel.classList.remove('half-page');
+        sidePanel.classList.add('active');
+    }
 
     const navTitle = document.getElementById('panel-title-nav');
     if (navTitle) navTitle.innerHTML = "";
 
-    document.getElementById('btn-projects').classList.add('active-tab');
-    document.getElementById('btn-partners').classList.remove('active-tab');
+    const btnProj = document.getElementById('btn-projects');
+    const btnPart = document.getElementById('btn-partners');
+    if (btnProj) btnProj.classList.add('active-tab');
+    if (btnPart) btnPart.classList.remove('active-tab');
 
     let allP = [];
     data.structures.forEach(s => s.projects.forEach(p => allP.push({...p, sName: s.name, sIdx: data.structures.indexOf(s)})));
@@ -372,20 +375,24 @@ function renderProjectsList() {
         </div>`;
     }).join('');
     
-    document.getElementById('panel-body').innerHTML = html;
+    const panelBody = document.getElementById('panel-body');
+    if (panelBody) panelBody.innerHTML = html;
 }
 
 function renderPartnersList() {
     const sidePanel = document.getElementById('side-panel');
-    sidePanel.classList.remove('half-page');
-    sidePanel.classList.add('active');
-    render();
+    if (sidePanel) {
+        sidePanel.classList.remove('half-page');
+        sidePanel.classList.add('active');
+    }
 
     const navTitle = document.getElementById('panel-title-nav');
     if (navTitle) navTitle.innerHTML = "";
 
-    document.getElementById('btn-partners').classList.add('active-tab');
-    document.getElementById('btn-projects').classList.remove('active-tab');
+    const btnProj = document.getElementById('btn-projects');
+    const btnPart = document.getElementById('btn-partners');
+    if (btnPart) btnPart.classList.add('active-tab');
+    if (btnProj) btnProj.classList.remove('active-tab');
 
     const parentCats = data.categories.filter(c => !c.parent);
     let html = parentCats.map((pCat, pi) => {
@@ -411,7 +418,9 @@ function renderPartnersList() {
             </div>
         </div>`;
     }).join('');
-    document.getElementById('panel-body').innerHTML = html;
+    
+    const panelBody = document.getElementById('panel-body');
+    if (panelBody) panelBody.innerHTML = html;
 }
 		function openPanel(idx) {
     const s = data.structures[idx];
