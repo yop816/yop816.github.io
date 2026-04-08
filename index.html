@@ -453,25 +453,23 @@ function renderProjectsList() {
     
     document.getElementById('panel-title-nav').innerText = "";
 
-    // 1. On regroupe tous les projets de toutes les structures
+    // 1. On regroupe tous les projets
     let allP = [];
-    data.structures.forEach(s => {
+    data.structures.forEach((s, sIdx) => {
         s.projects.forEach(p => {
-            allP.push({ ...p, sName: s.name, sIdx: data.structures.indexOf(s) });
+            allP.push({ ...p, sName: s.name, sIdx: sIdx });
         });
     });
 
-    // 2. On définit les deux catégories à afficher
+    // 2. Catégories principales
     const categories = ["Action culturelle", "Spectacle"];
 
     let html = categories.map(catLabel => {
-        // On filtre les projets qui correspondent au type (catLabel)
         const projectsInCat = allP.filter(p => p.type === catLabel);
-        
-        // On récupère les noms de projets uniques dans cette catégorie
-        const uniqueNames = [...new Set(projectsInCat.map(p => p.name))];
+        if (projectsInCat.length === 0) return "";
 
-        if (uniqueNames.length === 0) return ""; // On n'affiche pas si vide
+        // 3. On regroupe par ANNÉE à l'intérieur de la catégorie
+        const years = [...new Set(projectsInCat.map(p => p.year))].sort((a, b) => b.localeCompare(a)); // Tri décroissant (ex: 2025 avant 2024)
 
         return `
         <div class="list-section">
@@ -480,28 +478,44 @@ function renderProjectsList() {
                 <span>▼</span>
             </div>
             <div class="list-content" id="group-${catLabel.replace(/\s/g, '')}">
-                ${uniqueNames.map((uName, i) => {
-                    const variants = projectsInCat.filter(p => p.name === uName);
-                    const subId = `list-proj-${catLabel.replace(/\s/g, '')}-${i}`;
+                
+                ${years.map(year => {
+                    const projectsInYear = projectsInCat.filter(p => p.year === year);
+                    const uniqueNamesInYear = [...new Set(projectsInYear.map(p => p.name))];
+                    const yearId = `year-${catLabel.replace(/\s/g, '')}-${year}`;
+
                     return `
-                    <div style="margin-top: 5px; border: 1px solid #000;">
-                        <div class="list-header" onclick="toggleAcc('${subId}')" style="background: #f4f4f4; border:none; font-size: 0.75rem;">
-                            <span>${uName}</span>
-                            <span class="year-btn" style="font-size:0.5rem; background:#000; border:none;">${variants[0].year}</span>
+                    <div style="margin-left: 10px; margin-top: 10px;">
+                        <div class="list-header" onclick="toggleAcc('${yearId}')" style="background: #ddd; color: #000; font-weight: bold; font-size: 0.8rem;">
+                            <span>ANNÉE ${year}</span>
+                            <span>▼</span>
                         </div>
-                        <div class="list-content" id="${subId}">
-                            <p style="font-size:0.7rem; color:#666; margin-bottom:5px;">Structures partenaires :</p>
-                            ${variants.map(v => `<div class="partner-link" onclick="openPanel(${v.sIdx})">${v.sName}</div>`).join('')}
+                        <div class="list-content" id="${yearId}">
+                            ${uniqueNamesInYear.map((uName, i) => {
+                                const variants = projectsInYear.filter(p => p.name === uName);
+                                const subId = `proj-${yearId}-${i}`;
+
+                                return `
+                                <div style="margin-top: 5px; border: 1px solid #000;">
+                                    <div class="list-header" onclick="toggleAcc('${subId}')" style="background: #f4f4f4; border:none; font-size: 0.75rem;">
+                                        <span>${uName}</span>
+                                    </div>
+                                    <div class="list-content" id="${subId}">
+                                        <p style="font-size:0.7rem; color:#666; margin-bottom:5px; padding-left:5px;">Structures partenaires :</p>
+                                        ${variants.map(v => `<div class="partner-link" onclick="openPanel(${v.sIdx})">${v.sName}</div>`).join('')}
+                                    </div>
+                                </div>`;
+                            }).join('')}
                         </div>
                     </div>`;
                 }).join('')}
+                
             </div>
         </div>`;
     }).join('');
 
     document.getElementById('panel-body').innerHTML = html || "<p style='padding:20px;'>Aucun projet trouvé.</p>";
 }
-
         function renderPartnersList() {
             const sidePanel = document.getElementById('side-panel');
             sidePanel.classList.remove('half-page'); // <--- Retour à 35%
@@ -761,20 +775,22 @@ function toggleProject(pi, partners, currentIdx) {
         save(); openPanel(idx);
     }
 
-       function editProj(sIdx, pIdx) {
-        editingProj = pIdx;
-        const p = data.structures[sIdx].projects[pIdx];
-        document.getElementById('py').value = p.year;
-        document.getElementById('pn').value = p.name;
-        document.getElementById('ptype').value = p.type || "";
-        document.getElementById('pt').value = p.part || "";
-        document.getElementById('pd').value = p.desc || "";
-        document.getElementById('pimg').value = p.img || "";
-        document.getElementById('pw').value = p.word || "";
-        document.getElementById('pl').value = p.pdf || "";
-        document.getElementById('proj-form-title').innerText = "MODIFIER PROJET";
-        document.getElementById('proj-form').scrollIntoView();
-    }
+  function editProj(sIdx, pIdx) {
+    editingProj = pIdx;
+    const p = data.structures[sIdx].projects[pIdx];
+    document.getElementById('py').value = p.year;
+    document.getElementById('pn').value = p.name;
+    document.getElementById('ptype').value = p.type || "";
+    document.getElementById('pt').value = p.part || "";
+    document.getElementById('pd').value = p.desc || "";
+    document.getElementById('pimg').value = p.img || "";
+    document.getElementById('pl').value = p.pdf || "";
+    document.getElementById('pimg_file').value = "";
+    document.getElementById('pl_file').value = "";
+    document.getElementById('pw').value = p.word || "";
+    document.getElementById('proj-form-title').innerText = "MODIFIER PROJET";
+    document.getElementById('proj-form').scrollIntoView();
+}
 
         function delProj(sIdx, pIdx) { if(confirm("Supprimer ce projet ?")) { data.structures[sIdx].projects.splice(pIdx, 1); save(); openPanel(sIdx); } }
 
