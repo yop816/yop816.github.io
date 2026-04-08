@@ -911,29 +911,50 @@ async function addProj(idx) {
         }
 
         // --- 3. LOGIQUE DE RÉCIPROCITÉ (Doit être AVANT le save) ---
-        const currentStructName = data.structures[idx].name; 
+      const currentStructName = data.structures[idx].name; 
 
-        if (pObj.part) {
-            const partners = pObj.part.split(',').map(p => p.trim());
+if (pObj.part) {
+    const partners = pObj.part.split(',').map(p => p.trim());
+    
+    partners.forEach(pName => {
+        const sIdx = data.structures.findIndex(s => s.name.toLowerCase() === pName.toLowerCase());
+        
+        if (sIdx !== -1 && sIdx !== idx) {
+            let linkedProj;
+
+            if (pObj.type === "Action culturelle") {
+                // Pour l'action culturelle : on crée un projet "coquille"
+                // On ne garde que l'essentiel, le partenaire remplira le reste
+                linkedProj = {
+                    year: pObj.year,
+                    name: pObj.name,
+                    type: pObj.type,
+                    part: "", // Sera rempli par le partenaire s'il veut citer l'origine
+                    desc: "(Texte à personnaliser pour cette structure)", 
+                    word: "En savoir plus",
+                    pdf: "", 
+                    img: "" 
+                };
+            } else {
+                // Pour le reste (Spectacles) : on synchronise tout comme avant
+                linkedProj = { ...pObj };
+            }
+
+            // Gestion des partenaires pour le projet lié
+            let newParts = partners.filter(name => name.toLowerCase() !== pName.toLowerCase());
+            newParts.push(currentStructName);
+            linkedProj.part = newParts.join(', ');
+
+            if (!data.structures[sIdx].projects) data.structures[sIdx].projects = [];
             
-            partners.forEach(pName => {
-                const sIdx = data.structures.findIndex(s => s.name.toLowerCase() === pName.toLowerCase());
-                
-                if (sIdx !== -1 && sIdx !== idx) {
-                    const linkedProj = { ...pObj };
-                    let newParts = partners.filter(name => name.toLowerCase() !== pName.toLowerCase());
-                    newParts.push(currentStructName);
-                    linkedProj.part = newParts.join(', ');
-
-                    if (!data.structures[sIdx].projects) data.structures[sIdx].projects = [];
-                    
-                    const exists = data.structures[sIdx].projects.some(exP => exP.name === linkedProj.name && exP.year === linkedProj.year);
-                    if (!exists) {
-                        data.structures[sIdx].projects.push(linkedProj);
-                    }
-                }
-            });
+            // On ne l'ajoute que si le projet n'existe pas déjà chez le partenaire
+            const exists = data.structures[sIdx].projects.some(exP => exP.name === linkedProj.name && exP.year === linkedProj.year);
+            if (!exists) {
+                data.structures[sIdx].projects.push(linkedProj);
+            }
         }
+    });
+}
 
         // 4. Sauvegarde finale et nettoyage
         await save(); 
