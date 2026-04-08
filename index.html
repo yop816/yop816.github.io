@@ -204,7 +204,8 @@ let openSubMenus = [];
 let activeCats = []; 
 let editingStructIdx = null;
 let editingProj = null;
-
+let editingStructure = null;
+		
 const markerCluster = L.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 40 });
 
 async function loadDataFromCloud() {
@@ -214,14 +215,18 @@ async function loadDataFromCloud() {
             .select('content')
             .eq('id', 1)
             .single();
-
         if (error) throw error;
-
         if (records && records.content) {
             data = records.content;
-            // On initialise les variables globales avant le premier render
+            if (data.structures) {
+                data.structures.forEach(s => {
+                    if (s.projects) {
+                        s.projects = s.projects.filter(p => p !== null);
+                    }
+                });
+            }
             activeCats = data.categories ? data.categories.map(c => c.name) : [];
-            if (!openSubMenus) openSubMenus = []; 
+            if (typeof openSubMenus === 'undefined') openSubMenus = []; 
             render(); 
         }
     } catch (e) {
@@ -290,11 +295,15 @@ function render() {
     markerCluster.clearLayers(); 
     markersMap = {};
     
-    // --- 1. TIMELINE ---
-  const years = new Set();
-data.structures.forEach(s => {
-    if (s.projects) {
-        s.projects.forEach(p => { if (!p) return; years.add(p.year); }); }});
+    // --- 1. TIMELINE
+    const years = new Set();
+    data.structures.forEach(s => {
+        if (s.projects) {
+            s.projects.forEach(p => { 
+                if (p && p.year) years.add(p.year);
+            }); 
+        }
+    });
     
     const timelineEl = document.getElementById('year-timeline');
     if (timelineEl) {
@@ -331,9 +340,12 @@ data.structures.forEach(s => {
     }
 
     // --- 4. MARQUEURS ---
-    data.structures.forEach((s, idx) => {
-        const passYear = currentYear === "TOUT" || (s.projects && s.projects.some(p => p.year === currentYear));
-        const passType = currentType === "TOUT" || (s.projects && s.projects.some(p => p.type === currentType));
+  data.structures.forEach((s, idx) => {
+        const validProjects = (s.projects || []).filter(p => p !== null);
+        
+        const passYear = currentYear === "TOUT" || validProjects.some(p => p.year === currentYear);
+        const passType = currentType === "TOUT" || validProjects.some(p => p.type === currentType);
+        
         if (activeCats.includes(s.category) && passYear && passType) {
             const m = L.circleMarker([s.lat, s.lng], { color: '#000', weight: 1.5, fillColor: s.color, fillOpacity: 1, radius: 7 });
             m.on('click', () => openPanel(idx));
@@ -830,8 +842,6 @@ async function addProj(idx) {
         alert("Erreur lors de l'enregistrement des fichiers.");
     }
 }
-
-let editingStructure = null;
 
 function editProj(sIdx, pIdx) {
     editingProj = pIdx;
