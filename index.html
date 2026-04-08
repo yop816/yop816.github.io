@@ -407,7 +407,7 @@ function render() {
             if(el) el.classList.toggle('open');
         }
 
-function createGlobalProject() {
+async function createGlobalProject() {
     const porteurName = document.getElementById('g-porteur').value.trim();
     const projName = document.getElementById('g-name').value.trim();
     const year = document.getElementById('g-year').value.trim();
@@ -415,34 +415,41 @@ function createGlobalProject() {
     const partsRaw = document.getElementById('g-parts').value;
     const desc = document.getElementById('g-desc').value.trim();
 
-    if (!porteurName || !projName) { alert("Nom porteur et projet requis !"); return; }
+    const imgFile = document.getElementById('g-img-file').files[0];
+    const pdfFile = document.getElementById('g-pdf-file').files[0];
+
+    if (!porteurName || !projName) { alert("Nom et projet requis !"); return; }
+
+    const [imageUrl, pdfUrl] = await Promise.all([
+        uploadToSupabase(imgFile, 'images'),
+        uploadToSupabase(pdfFile, 'documents')
+    ]);
 
     let targets = [porteurName];
     if (partsRaw) {
         partsRaw.split(',').forEach(p => { if(p.trim() !== "") targets.push(p.trim()); });
     }
-
-    let count = 0;
     targets.forEach(targetName => {
         const sIdx = data.structures.findIndex(s => s.name.toLowerCase() === targetName.toLowerCase());
         if (sIdx !== -1) {
             const newProj = {
-                name: projName, year: year, type: type, part: partsRaw,
-                desc: desc, img: "", word: "En savoir plus", pdf: ""
+                name: projName, 
+                year: year, 
+                type: type, 
+                part: partsRaw,
+                desc: desc, 
+                img: imageUrl || "", 
+                word: "En savoir plus", 
+                pdf: pdfUrl || "" 
             };
             if (!data.structures[sIdx].projects) data.structures[sIdx].projects = [];
             data.structures[sIdx].projects.push(newProj);
-            count++;
         }
     });
-
-    if (count > 0) {
-        alert("Projet diffusé sur " + count + " structures !");
-        save();
-        document.getElementById('global-project-form').style.display = 'none';
-    } else {
-        alert("Aucune structure trouvée. Vérifie l'orthographe exacte.");
-    }
+    await save(); 
+    
+    alert("Projet créé et fichiers hébergés sur Supabase !");
+    document.getElementById('global-project-form').style.display = 'none';
 }
 
 function renderProjectsList() {
@@ -753,43 +760,98 @@ function toggleProject(pi, partners, currentIdx) {
 
         function delStruct(i) { if(confirm("Supprimer ce lieu ?")) { data.structures.splice(i,1); save(); closePanel(); } }
 
-     function addProj(idx) {
-        const py = document.getElementById('py').value;
-        const pn = document.getElementById('pn').value;
-        const ptype = document.getElementById('ptype').value;
-        if(!py || !pn) return alert("Année et Titre requis");
-        
+	async function uploadToSupabase(file, folder) {
+    if (!file) return null;
+    const fileName = `${folder}/${Date.now()}-${file.name}`;
+    const { data, error } = await supabase.storage
+        .from('project-files')
+        .upload(fileName, file);
+
+    if (error) {
+        console.error("Erreur d'upload :", error.message);
+        return null;
+    }
+    const { data: publicUrlData } = supabase.storage
+        .from('project-files')
+        .getPublicUrl(fileName);
+
+    return publicUrlData.publicUrl;
+}
+		
+async function addProj(idx) {
+    const py = document.getElementById('py').value.trim();
+    const pn = document.getElementById('pn').value.trim();
+    const ptype = document.getElementById('ptype').value;
+    
+    if(!py || !pn) return alert("Année et Titre requis");
+
+    const imgFile = document.getElementById('pimg_file').files[0];
+    const pdfFile = document.getElementById('pl_file').files[0];
+
+    let imageUrl = document.getElementById('pimg').value;
+    let pdfUrl = document.getElementById('pl').value;
+
+    try {
+        if (imgFile) {
+            const uploadedImg = await uploadToSupabase(imgFile, 'images');
+            if (uploadedImg) imageUrl = uploadedImg;
+        }
+
+        if (pdfFile) {
+            const uploadedPdf = await uploadToSupabase(pdfFile, 'documents');
+            if (uploadedPdf) pdfUrl = uploadedPdf;
+        }
         const pObj = { 
             year: py, 
             name: pn, 
             type: ptype, 
-            part: document.getElementById('pt').value, 
-            desc: document.getElementById('pd').value, 
-            word: document.getElementById('pw').value, 
-            pdf: document.getElementById('pl').value, 
-            img: document.getElementById('pimg').value 
+            part: document.getElementById('pt').value.trim(), 
+            desc: document.getElementById('pd').value.trim(), 
+            word: document.getElementById('pw').value.trim() || "En savoir plus", 
+            pdf: pdfUrl, 
+            img: imageUrl 
         };
+        if(editingProj !== null) { 
+            data.structures[idx].projects[editingProj] = pObj; 
+            editingProj = null; 
+        } else {
+            if(!data.structures[idx].projects) data.structures[idx].projects = [];
+            data.structures[idx].projects.push(pObj);
+        }
+        await save(); 
+        document.getElementById('pimg_file').value = "";
+        document.getElementById('pl_file').value = "";
         
-        if(editingProj !== null) { data.structures[idx].projects[editingProj] = pObj; editingProj = null; } 
-        else data.structures[idx].projects.push(pObj);
-        save(); openPanel(idx);
-    }
+        openPanel(idx); 
+        alert("Projet enregistré !");
 
-  function editProj(sIdx, pIdx) {
+    } catch (error) {
+        console.error("Erreur addProj:", error);
+        alert("Erreur lors de l'enregistrement des fichiers.");
+    }
+}
+
+  let editingProj = null;
+let editingStructure = null;
+
+function editProj(sIdx, pIdx) {
     editingProj = pIdx;
+    editingStructure = sIdx;
+    
     const p = data.structures[sIdx].projects[pIdx];
-    document.getElementById('py').value = p.year;
-    document.getElementById('pn').value = p.name;
+    document.getElementById('py').value = p.year || "";
+    document.getElementById('pn').value = p.name || "";
     document.getElementById('ptype').value = p.type || "";
     document.getElementById('pt').value = p.part || "";
     document.getElementById('pd').value = p.desc || "";
+    document.getElementById('pw').value = p.word || "En savoir plus";
     document.getElementById('pimg').value = p.img || "";
     document.getElementById('pl').value = p.pdf || "";
     document.getElementById('pimg_file').value = "";
     document.getElementById('pl_file').value = "";
-    document.getElementById('pw').value = p.word || "";
-    document.getElementById('proj-form-title').innerText = "MODIFIER PROJET";
-    document.getElementById('proj-form').scrollIntoView();
+    document.getElementById('proj-form-title').innerText = "MODIFIER LE PROJET";
+    document.getElementById('proj-form').style.display = 'block';
+    document.getElementById('proj-form').scrollIntoView({ behavior: 'smooth' });
 }
 
         function delProj(sIdx, pIdx) { if(confirm("Supprimer ce projet ?")) { data.structures[sIdx].projects.splice(pIdx, 1); save(); openPanel(sIdx); } }
