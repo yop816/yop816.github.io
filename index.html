@@ -101,19 +101,7 @@ input, textarea, select {
     
     <button id="btn-add-struct" class="btn-round" style="display:none;" onclick="openModal('modal-struct')">+</button>
 </div>
-
-<div id="global-project-form" style="background:#fff; padding:20px; border:3px solid #000; position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); z-index:9999; width:320px; display:none; box-shadow:0 0 20px rgba(0,0,0,0.5);">
-    <h3 style="margin-top:0; font-size:1.1rem;">✨ CRÉATION MULTI-LIEUX</h3>
-    <input id="g-porteur" placeholder="Structure PORTEUSE">
-    <input id="g-name" placeholder="Nom du projet">
-    <input id="g-year" value="2024-2025" placeholder="Année">
-    <select id="g-type">
-        <option value="Action culturelle">Action culturelle</option>
-        <option value="Parcours de spectacle">Spectacle</option>
-    </select>
-    <input id="g-parts" placeholder="Partenaires (séparés par ,)">
-    <textarea id="g-desc" placeholder="Petite description..."></textarea>
-    
+  
     <button class="btn-full" onclick="createGlobalProject()" style="background:#000; color:#fff; margin-bottom:5px;">DIFFUSER</button>
     <button class="btn-full" onclick="document.getElementById('global-project-form').style.display='none'" style="background:#ccc;">ANNULER</button>
 </div>
@@ -164,6 +152,7 @@ input, textarea, select {
         <p><b id="struct-action-label">Ajouter un lieu</b></p>
         <input id="s-name" placeholder="Nom structure">
         <input id="s-addr" placeholder="Adresse complète">
+	   <textarea id="s-desc" placeholder="Description de la structure (facultatif)" style="width: 100%; margin-bottom: 10px; height: 60px; font-family: sans-serif;"></textarea>
       <select id="s-cat-select" style="width: 100%; margin-bottom: 10px;"></select>
     
       <button class="btn-full" id="btn-struct-submit" onclick="addStructure()">CRÉER LIEU</button>
@@ -600,6 +589,11 @@ function openPanel(idx) {
     let html = `<h2 style="margin-top:25px; margin-bottom:5px;">${s.name.toUpperCase()}</h2>
                 ${categoryHTML}
                 <p style="margin-top:5px;"><small>${s.address}</small></p>`;
+	if (s.desc) {
+    html += `<div style="font-size: 0.85rem; line-height: 1.4; margin-bottom: 20px; padding: 10px; background: #f0f0f0; border-left: 4px solid ${s.color};">
+                ${s.desc}
+             </div>`;
+}
 
     if (isAdmin) {
         html += `<div style="display:flex; gap:15px; margin-bottom:15px;">
@@ -797,7 +791,7 @@ function toggleProject(pi, partners, currentIdx) {
                 const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}`);
                 const json = await res.json();
                 if(json.length > 0) {
-                    const newS = { name, lat: parseFloat(json[0].lat), lng: parseFloat(json[0].lon), address: addr, category: catName, color: catObj.color, projects: editingStructIdx !== null ? data.structures[editingStructIdx].projects : [] };
+                    const newS = { name, lat: parseFloat(json[0].lat), lng: parseFloat(json[0].lon), address: addr, desc: desc, category: catName, color: catObj.color, projects: editingStructIdx !== null ? data.structures[editingStructIdx].projects : [] };
                     if(editingStructIdx !== null) data.structures[editingStructIdx] = newS; else data.structures.push(newS);
                     save(); closeModal('modal-struct');
                 } else alert("Adresse non trouvée");
@@ -819,6 +813,7 @@ function toggleProject(pi, partners, currentIdx) {
             const s = data.structures[idx];
             document.getElementById('s-name').value = s.name;
             document.getElementById('s-addr').value = s.address;
+			document.getElementById('s-desc').value = s.desc || "";
             document.getElementById('s-cat-select').value = s.category;
             document.getElementById('struct-modal-title').innerText = "MODIFIER LIEU";
             document.getElementById('btn-struct-submit').innerText = "ENREGISTRER";
