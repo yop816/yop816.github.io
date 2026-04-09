@@ -102,7 +102,6 @@ input, textarea, select {
     <button id="btn-add-struct" class="btn-round" style="display:none;" onclick="openModal('modal-struct')">+</button>
 </div>
   
-    <button class="btn-full" onclick="createGlobalProject()" style="background:#000; color:#fff; margin-bottom:5px;">DIFFUSER</button>
     <button class="btn-full" onclick="document.getElementById('global-project-form').style.display='none'" style="background:#ccc;">ANNULER</button>
 </div>
 
@@ -407,51 +406,6 @@ function render() {
             const el = document.getElementById(id);
             if(el) el.classList.toggle('open');
         }
-
-async function createGlobalProject() {
-    const porteurName = document.getElementById('g-porteur').value.trim();
-    const projName = document.getElementById('g-name').value.trim();
-    const year = document.getElementById('g-year').value.trim();
-    const type = document.getElementById('g-type').value;
-    const partsRaw = document.getElementById('g-parts').value;
-    const desc = document.getElementById('g-desc').value.trim();
-
-    const imgFile = document.getElementById('g-img-file').files[0];
-    const pdfFile = document.getElementById('g-pdf-file').files[0];
-
-    if (!porteurName || !projName) { alert("Nom et projet requis !"); return; }
-
-    const [imageUrl, pdfUrl] = await Promise.all([
-        uploadToSupabase(imgFile, 'images'),
-        uploadToSupabase(pdfFile, 'documents')
-    ]);
-
-    let targets = [porteurName];
-    if (partsRaw) {
-        partsRaw.split(',').forEach(p => { if(p.trim() !== "") targets.push(p.trim()); });
-    }
-    targets.forEach(targetName => {
-        const sIdx = data.structures.findIndex(s => s.name.toLowerCase() === targetName.toLowerCase());
-        if (sIdx !== -1) {
-            const newProj = {
-                name: projName, 
-                year: year, 
-                type: type, 
-                part: partsRaw,
-                desc: desc, 
-                img: imageUrl || "", 
-                word: "En savoir plus", 
-                pdf: pdfUrl || "" 
-            };
-            if (!data.structures[sIdx].projects) data.structures[sIdx].projects = [];
-            data.structures[sIdx].projects.push(newProj);
-        }
-    });
-    await save(); 
-    
-    alert("Projet créé et fichiers hébergés sur Supabase !");
-    document.getElementById('global-project-form').style.display = 'none';
-}
 
 function renderProjectsList() {
     const sidePanel = document.getElementById('side-panel');
