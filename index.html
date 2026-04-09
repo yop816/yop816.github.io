@@ -730,22 +730,58 @@ function toggleProject(pi, partners, currentIdx) {
             res.style.display = hits.length ? 'block' : 'none';
         }
 
-        async function addStructure() {
-            const addr = document.getElementById('s-addr').value;
-            const name = document.getElementById('s-name').value;
-            const catName = document.getElementById('s-cat-select').value;
-            if(!addr || !name) return alert("Nom et adresse requis");
-            const catObj = data.categories.find(c => c.name === catName);
-            try {
-                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}`);
-                const json = await res.json();
-                if(json.length > 0) {
-                    const newS = { name, lat: parseFloat(json[0].lat), lng: parseFloat(json[0].lon), address: addr, desc: desc, category: catName, color: catObj.color, projects: editingStructIdx !== null ? data.structures[editingStructIdx].projects : [] };
-                    if(editingStructIdx !== null) data.structures[editingStructIdx] = newS; else data.structures.push(newS);
-                    save(); closeModal('modal-struct');
-                } else alert("Adresse non trouvée");
-            } catch(e) { alert("Erreur réseau"); }
-        } 
+     async function addStructure() {
+    const nameInput = document.getElementById('s-name');
+    const addrInput = document.getElementById('s-addr');
+    const descInput = document.getElementById('s-desc');
+    const catSelect = document.getElementById('s-cat-select');
+
+    const name = nameInput.value.trim();
+    const addr = addrInput.value.trim();
+    const desc = descInput ? descInput.value.trim() : "";
+    const catName = catSelect.value;
+
+    if(!addr || !name) return alert("Nom et adresse requis");
+
+    const catObj = data.categories.find(c => c.name === catName);
+    const catColor = catObj ? catObj.color : "#000000"; // Sécurité si catObj est nul
+
+    try {
+        // Géocodage
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}`);
+        const json = await res.json();
+
+        if(json.length > 0) {
+            const newS = { 
+                name, 
+                lat: parseFloat(json[0].lat), 
+                lng: parseFloat(json[0].lon), 
+                address: addr, 
+                desc: desc, // Stockage de la description dans ton JSON
+                category: catName, 
+                color: catColor, 
+                projects: (editingStructIdx !== null) ? data.structures[editingStructIdx].projects : [] 
+            };
+
+            if(editingStructIdx !== null) {
+                data.structures[editingStructIdx] = newS;
+            } else {
+                data.structures.push(newS);
+            }
+            await save(); closeModal('modal-struct'); render(); 
+            nameInput.value = "";
+            addrInput.value = "";
+            if(descInput) descInput.value = "";
+
+			editingStructIdx = null; 
+        } else {
+            alert("Adresse non trouvée par le service de carte");
+        }
+    } catch(e) { 
+        console.error(e);
+        alert("Erreur de connexion ou de géocodage"); 
+    }
+}
 
        function resetStructModal() {
     editingStructIdx = null; 
