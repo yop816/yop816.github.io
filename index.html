@@ -179,6 +179,11 @@ const BIN_ID = '69e6364536566621a8d23271';
 const MASTER_KEY = '$2a$10$2dpOvAVVNrN6mWuKhQsBF.FLP68D9wvQLggxoOI1BVslHq.W6ow5u';
 const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${69e6364536566621a8d23271}`;
 
+		// --- Cloudinary (Pour les images et PDF) ---
+const CLOUD_NAME = "dfnwisv3h"; 
+const UPLOAD_PRESET = "la_mouche_preset"; 
+const CLOUDINARY_URL = `https://api.cloudinary.com/v1_1/${dfnwisv3h}/image/upload`;
+		
 // --- VARIABLES GLOBALES ---
 let data = { structures: [], categories: [], password: "Mouche!" };
 let isAdmin = false; 
@@ -871,6 +876,23 @@ async function uploadToSupabase(file, folder) {
     }
 }
 		
+// --- FONCTION UTILITAIRE UPLOAD ---
+async function uploadToCloudinary(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', UPLOAD_PRESET); // Utilise ton preset "Unsigned"
+
+    const res = await fetch(CLOUDINARY_URL, {
+        method: 'POST',
+        body: formData
+    });
+    
+    if (!res.ok) throw new Error("Erreur Cloudinary");
+    const json = await res.json();
+    return json.secure_url; // Retourne l'URL HTTPS de l'image ou du PDF
+}
+
+// --- FONCTION ADDPROJ MISE À JOUR ---
 async function addProj(idx) {
     const py = document.getElementById('py').value.trim();
     const pn = document.getElementById('pn').value.trim();
@@ -886,13 +908,11 @@ async function addProj(idx) {
 
     try {
         if (imgFile) {
-            const uploadedImg = await uploadToSupabase(imgFile, 'images');
-            if (uploadedImg) imageUrl = uploadedImg;
+            imageUrl = await uploadToCloudinary(imgFile);
         }
 
         if (pdfFile) {
-            const uploadedPdf = await uploadToSupabase(pdfFile, 'documents');
-            if (uploadedPdf) pdfUrl = uploadedPdf;
+            pdfUrl = await uploadToCloudinary(pdfFile);
         }
 
         // 1. Création de l'objet projet
@@ -907,7 +927,6 @@ async function addProj(idx) {
             img: imageUrl 
         };
 
-        // Garder trace de l'ancien nom si on modifie (pour retrouver le projet chez les partenaires)
         let oldName = pn;
         if(editingProj !== null) {
             oldName = data.structures[idx].projects[editingProj].name;
@@ -918,7 +937,7 @@ async function addProj(idx) {
             data.structures[idx].projects.push(pObj);
         }
 
-        // --- 2. LOGIQUE DE RÉCIPROCITÉ ---
+        // --- 2. LOGIQUE DE RÉCIPROCITÉ (Inchangée, elle fonctionne avec JSONBin) ---
         const currentStructName = data.structures[idx].name; 
 
         if (pObj.part) {
@@ -929,37 +948,29 @@ async function addProj(idx) {
                 
                 if (sIdx !== -1 && sIdx !== idx) {
                     if (!data.structures[sIdx].projects) data.structures[sIdx].projects = [];
-                    
-                    // On cherche si le projet existe déjà chez le partenaire (par l'ancien nom ou le nouveau)
                     const existingIdx = data.structures[sIdx].projects.findIndex(exP => exP.name === oldName || exP.name === pn);
 
                     let linkedProj;
-
                     if (pObj.type === "Action culturelle") {
-                        // Pour l'action culturelle : On fusionne avec l'existant ou on crée une coquille
                         const existingP = existingIdx !== -1 ? data.structures[sIdx].projects[existingIdx] : {};
-                        
                         linkedProj = {
                             year: pObj.year,
                             name: pObj.name,
                             type: pObj.type,
-                            part: "", // Sera recalculé plus bas
+                            part: "", 
                             desc: existingP.desc || "(Texte à personnaliser pour cette structure)", 
                             word: existingP.word || "En savoir plus",
                             pdf: existingP.pdf || "", 
                             img: existingP.img || "" 
                         };
                     } else {
-                        // Pour le reste (Spectacles) : On synchronise tout
                         linkedProj = { ...pObj };
                     }
 
-                    // Calcul de la liste des partenaires chez le voisin
                     let newParts = partners.filter(name => name.toLowerCase() !== pName.toLowerCase());
                     newParts.push(currentStructName);
                     linkedProj.part = newParts.join(', ');
 
-                    // Mise à jour ou Ajout
                     if (existingIdx !== -1) {
                         data.structures[sIdx].projects[existingIdx] = linkedProj;
                     } else {
@@ -969,23 +980,26 @@ async function addProj(idx) {
             });
         }
 
-        // 3. Sauvegarde finale et nettoyage
+        // 3. Sauvegarde finale vers JSONBin
         await save(); 
+        
+        // Nettoyage des champs file
         document.getElementById('pimg_file').value = "";
         document.getElementById('pl_file').value = "";
+        document.getElementById('pimg').value = "";
+        document.getElementById('pl').value = "";
         
-        // Reset du formulaire
         document.getElementById('proj-form-title').innerText = "NOUVEAU PROJET";
+        document.getElementById('proj-form').style.display = 'none'; // Ferme le formulaire
         
         openPanel(idx); 
-        alert("Projet enregistré et synchronisé !");
+        alert("Projet enregistré et synchronisé sur le Cloud !");
 
     } catch (error) {
         console.error("Erreur addProj:", error);
-        alert("Erreur lors de l'enregistrement.");
+        alert("Erreur lors de l'enregistrement : " + error.message);
     }
 }
-
 function editProj(sIdx, pIdx) {
     editingProj = pIdx;
     editingStructure = sIdx;
