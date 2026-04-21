@@ -168,7 +168,6 @@ input, textarea, select {
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
 
         const map = L.map('map', { zoomControl: false }).setView([45.695, 4.793], 13);
@@ -273,27 +272,28 @@ async function importData(event) {
     reader.onload = async function(e) {
         try {
             const importedData = JSON.parse(e.target.result);
+            
+            // Vérification basique du format
             if (!importedData.structures || !importedData.categories) {
                 throw new Error("Format de fichier invalide.");
             }
 
+            // 1. On met à jour la variable locale 'data'
             data = importedData;
-            // On prépare les variables nécessaires au render()
+            
+            // 2. On prépare l'affichage
             activeCats = data.categories.map(c => c.name);
             openSubMenus = []; 
+            await save(); 
             
-            const { error } = await _supabase
-                .from('data_storage')
-                .update({ content: data })
-                .eq('id', 1);
-
-            if (error) throw error;
+            alert("Données importées et synchronisées avec JSONBin !");
             
-            alert("Synchronisé avec le Cloud !");
-            render(); 
+            // 4. On rafraîchit la carte
+            if (typeof render === "function") render(); 
+            
         } catch (err) {
             console.error("Erreur Import:", err);
-            alert("Erreur : " + err.message);
+            alert("Erreur lors de l'import : " + err.message);
         }
     };
     reader.readAsText(file);
@@ -839,60 +839,35 @@ function toggleProject(pi, partners, currentIdx) {
 
         function delStruct(i) { if(confirm("Supprimer ce lieu ?")) { data.structures.splice(i,1); save(); closePanel(); } }
 
-async function uploadToSupabase(file, folder) {
-    if (!file) return null;
-    let supabaseClient;
-    if (typeof _supabase !== 'undefined') {
-        supabaseClient = _supabase;
-    } else if (typeof supabase !== 'undefined') {
-        supabaseClient = supabase;
-    } else {
-        alert("ERREUR : Aucune variable supabase ou _supabase n'a été trouvée !");
-        return null;
-    }
-
-    const fileName = `${folder}/${Date.now()}-${file.name}`;
-    console.log("Tentative d'upload vers le bucket 'project-files'...", fileName);
-
-    try {
-        const { data, error } = await supabaseClient.storage
-            .from('project-files')
-            .upload(fileName, file);
-
-        if (error) {
-            console.error("Détail erreur Supabase:", error);
-            alert("Erreur Supabase : " + error.message);
-            return null;
-        }
-
-        const { data: publicUrlData } = supabaseClient.storage
-            .from('project-files')
-            .getPublicUrl(fileName);
-
-        return publicUrlData.publicUrl;
-    } catch (err) {
-        alert("Erreur système : " + err.message);
-        return null;
-    }
-}
-		
-// --- FONCTION UTILITAIRE UPLOAD ---
 async function uploadToCloudinary(file) {
+    if (!file) return null;
+
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('upload_preset', UPLOAD_PRESET); // Utilise ton preset "Unsigned"
+    formData.append('upload_preset', UPLOAD_PRESET); 
 
-    const res = await fetch(CLOUDINARY_URL, {
-        method: 'POST',
-        body: formData
-    });
-    
-    if (!res.ok) throw new Error("Erreur Cloudinary");
-    const json = await res.json();
-    return json.secure_url; // Retourne l'URL HTTPS de l'image ou du PDF
+    try {
+        const res = await fetch(CLOUDINARY_URL, {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (!res.ok) {
+            const errorData = await res.json();
+            throw new Error(errorData.error.message || "Erreur Cloudinary");
+        }
+
+        const json = await res.json();
+        console.log("Fichier uploadé avec succès :", json.secure_url);
+        return json.secure_url; // C'est l'URL finale que tu stockeras dans ton JSON
+        
+    } catch (err) {
+        console.error("Détail erreur Upload:", err);
+        alert("Erreur lors de l'envoi du fichier : " + err.message);
+        return null;
+    }
 }
 
-// --- FONCTION ADDPROJ MISE À JOUR ---
 async function addProj(idx) {
     const py = document.getElementById('py').value.trim();
     const pn = document.getElementById('pn').value.trim();
